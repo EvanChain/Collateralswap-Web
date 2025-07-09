@@ -1,0 +1,101 @@
+# 通用操作系统文件
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+~$*
+ehthumbs.db
+Icon?
+
+# 依赖目录
+node_modules/
+**/node_modules/
+
+# 构建输出
+build/
+dist/
+.next/
+out/
+public/build/ # Gatsby/Next.js 构建输出
+.server_build/ # 部分Node服务构建输出
+
+# 缓存文件
+.cache/
+.yarn/cache
+.npm
+.pnpm-store/
+
+# 环境变量文件
+.env*
+!.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 日志文件
+*.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+*.pid
+*.seed
+
+# 运行时文件
+*.pid
+*.seed
+*.pid.lock
+
+# 测试相关
+coverage/
+.nyc_output/
+jest*.config.js
+**/__snapshots__/
+
+# 打包文件
+*.gz
+*.zip
+*.tar
+*.tgz
+
+# 编辑器/IDE配置
+.idea/
+.vscode/
+*.code-workspace
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# 包管理器相关
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+shrinkwrap.json
+
+# 类型Script生成文件
+*.d.ts.map
+tsconfig.tsbuildinfo
+
+# React/Vite生成文件
+/dist
+/.vite
+/.svelte-kit
+/ssr-dist
+
+# Next.js相关
+/.next
+/out
+.next/cache/
+
+# Serverless框架
+.serverless/
+.serverless_nextjs/
+
+# NPM/Yarn工具配置
+.npmrc
+.yarnrc
+.yarn-integrity
+.pnp.*
