@@ -1,7 +1,7 @@
 const Order = require('../models/Order');
 const { body, validationResult } = require('express-validator');
 const Web3 = require('web3');
-const orderBookAbi = require('../abis/orderBookAbi.json'); // 请确保ABI文件路径正确
+const IRouterAbi = require('../abis/IRouterAbi.json'); // 请确保ABI文件路径正确
 const { orderBookAddress, web3ProviderUrl } = require('../config/appConfig');
 
 exports.validateCreateOrder = [
@@ -98,25 +98,31 @@ exports.fillOrder = async (req, res) => {
         // 记录撮合订单ID
         const matchedOrderIds = matchDetails.map(d => d.orderId);
 
-        // 如果有撮合订单，调用合约swap
+        // 调用IRouter合约swap
         let swapResult = null;
         if (matchedOrderIds.length > 0) {
-            // 初始化 orderBookContract
+            // 构造swapData参数，严格按照IRouterAbi结构
+            const swapData = {
+                tokenIn: tokenIn,
+                tokenOut: tokenOut,
+                amountIn: amountIn.toString(),
+                minAmountOut: minAmountOut.toString(),
+                orderDatas: [
+                    {
+                        pivAddress: process.env.PIV_ADDRESS, // 请确保环境变量已设置
+                        orderIds: matchedOrderIds
+                    }
+                ]
+            };
+
+            // 初始化 IRouterContract 合约实例
             const web3 = new Web3(web3ProviderUrl);
-            const orderBookContract = new web3.eth.Contract(orderBookAbi, orderBookAddress);
+            const routerContract = new web3.eth.Contract(IRouterAbi, orderBookAddress);
 
-            // 假设 orderBookContract 已经初始化并连接钱包
-            // 注意：amountIn, minAmountOut 需为字符串或BigNumber，orderIds为数组
-            swapResult = await orderBookContract.methods.swap(
-                tokenIn,
-                tokenOut,
-                amountIn,
-                minAmountOut,
-                matchedOrderIds
-            ).call(); // 或 .send({from: ...}) 视业务需求
+            // 调用合约swap（假设routerContract已初始化）
+            swapResult = await routerContract.methods.swap(swapData).call();
 
-            // swapResult 即为 netAmountOut
-            // 保存 tokenOut 和 minAmountOut 到每个撮合订单
+            // 可选：保存swap结果到订单
             for (const orderId of matchedOrderIds) {
                 await Order.findByIdAndUpdate(orderId, {
                     lastSwapTokenOut: tokenOut,
@@ -133,8 +139,18 @@ exports.fillOrder = async (req, res) => {
             totalIn: (BigInt(amountIn) - remainingIn).toString(),
             totalOut: totalOut.toString(),
             matchDetails,
-            swapNetAmountOut: swapResult ? swapResult.toString() : null
+            swapNetAmountOut: swapResult ? swapResult[0].toString() : null,
+            swapTotalInputAmount: swapResult ? swapResult[1].toString() : null
         });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+exports.listOrder = async (req, res) => {
+    try {
+        const orders = await Order.find().sort({ createdAt: -1 });
+        res.json(orders);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
