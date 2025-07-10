@@ -61,7 +61,8 @@ server/
 - ✅ 参数验证
 - ✅ 无匹配订单处理
 - ✅ 价格优先算法
-- ✅ 合约调用失败处理
+- ✅ IRouter合约调用处理
+- ✅ IPIV合约方法支持
 
 ### 3. 路由测试 (`__tests__/routes/orderRoutes.test.js`)
 

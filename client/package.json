@@ -6,10 +6,20 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:integration": "jest __tests__/integration.test.ts",
+    "test:swap": "jest __tests__/swap.test.ts",
+    "test:migration": "jest __tests__/migration.test.ts",
+    "test:order": "jest __tests__/placeOrder.test.ts"
   },
   "dependencies": {
+    "@aave/contract-helpers": "^1.36.0",
+    "@aave/math-utils": "^1.36.0",
     "@ant-design/v5-patch-for-react-19": "^1.0.3",
+    "@bgd-labs/aave-address-book": "^4.24.2",
     "@hookform/resolvers": "^3.9.1",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
@@ -44,7 +54,7 @@
     "cmdk": "1.0.4",
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.5.1",
-    "ethers": "^6.15.0",
+    "ethers": "^5.8.0",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
     "next": "15.2.4",
@@ -62,9 +72,15 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@jest/globals": "^30.0.4",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@types/jest": "^30.0.0",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "jest": "^30.0.4",
+    "jest-environment-jsdom": "^30.0.4",
     "postcss": "^8.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"

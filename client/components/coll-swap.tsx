@@ -245,7 +245,11 @@ export default function CollSwap() {
           </Card>
 
           {/* Order Book & Depth Chart Component */}
-          <OrderBook className="flex-grow" />
+          <OrderBook
+            className="flex-grow"
+            bids={[]}
+            asks={[]}
+          />
         </div>
       </main>
     </div>

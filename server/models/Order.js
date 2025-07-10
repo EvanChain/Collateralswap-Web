@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const orderSchema = new mongoose.Schema({
+    orderId: {
+        type: String,
+        unique: true,
+        sparse: true // 允许null值，但如果有值必须唯一
+    },
     owner: {
         type: String,
         required: true
@@ -21,6 +26,10 @@ const orderSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    interestRateMode: {
+        type: String,
+        default: '1'
+    },
     status: {
         type: String,
         enum: ['OPEN', 'FILLED', 'CANCELLED'],
@@ -29,6 +38,10 @@ const orderSchema = new mongoose.Schema({
     filledAmount: {
         type: String,
         default: '0'
+    },
+    isFromBlockchain: {
+        type: Boolean,
+        default: false
     },
     createdAt: {
         type: Date,

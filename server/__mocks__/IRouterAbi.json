@@ -22,9 +22,26 @@
                         "internalType": "uint256",
                         "name": "minAmountOut",
                         "type": "uint256"
+                    },
+                    {
+                        "components": [
+                            {
+                                "internalType": "address",
+                                "name": "pivAddress",
+                                "type": "address"
+                            },
+                            {
+                                "internalType": "uint256[]",
+                                "name": "orderIds",
+                                "type": "uint256[]"
+                            }
+                        ],
+                        "internalType": "struct IRouter.OrderData[]",
+                        "name": "orderDatas",
+                        "type": "tuple[]"
                     }
                 ],
-                "internalType": "struct SwapData",
+                "internalType": "struct IRouter.SwapData",
                 "name": "swapData",
                 "type": "tuple"
             }
@@ -33,7 +50,7 @@
         "outputs": [
             {
                 "internalType": "uint256",
-                "name": "amountOut",
+                "name": "netAmountOut",
                 "type": "uint256"
             },
             {
@@ -44,5 +61,55 @@
         ],
         "stateMutability": "nonpayable",
         "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "deployPIV",
+        "outputs": [
+            {
+                "internalType": "address",
+                "name": "pivAddress",
+                "type": "address"
+            }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "tokenIn",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "tokenOut",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "address",
+                "name": "caller",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "amountIn",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "finalAmountOut",
+                "type": "uint256"
+            }
+        ],
+        "name": "SwapExecuted",
+        "type": "event"
     }
 ]

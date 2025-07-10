@@ -2,7 +2,7 @@ const Order = require('../models/Order');
 const { body, validationResult } = require('express-validator');
 const Web3 = require('web3');
 const IRouterAbi = require('../abis/IRouterAbi.json'); // 请确保ABI文件路径正确
-const { orderBookAddress, web3ProviderUrl } = require('../config/appConfig');
+const { orderBookAddress, web3ProviderUrl, pivAddress } = require('../config/appConfig');
 
 exports.validateCreateOrder = [
     body('owner').isString().notEmpty(),
@@ -95,41 +95,50 @@ exports.fillOrder = async (req, res) => {
             totalOut += fillOut;
         }
 
-        // 记录撮合订单ID
-        const matchedOrderIds = matchDetails.map(d => d.orderId);
+        // // 记录撮合订单ID
+        // const matchedOrderIds = matchDetails.map(d => d.orderId);
 
-        // 调用IRouter合约swap
-        let swapResult = null;
-        if (matchedOrderIds.length > 0) {
-            // 构造swapData参数，严格按照IRouterAbi结构
-            const swapData = {
-                tokenIn: tokenIn,
-                tokenOut: tokenOut,
-                amountIn: amountIn.toString(),
-                minAmountOut: minAmountOut.toString(),
-                orderDatas: [
-                    {
-                        pivAddress: process.env.PIV_ADDRESS, // 请确保环境变量已设置
-                        orderIds: matchedOrderIds
-                    }
-                ]
-            };
+        // // 调用IRouter合约swap
+        // let swapResult = null;
+        // if (matchedOrderIds.length > 0) {
+        //     try {
+        //         // // 构造swapData参数，严格按照新的IRouter ABI结构
+        //         // const swapData = {
+        //         //     tokenIn: tokenIn,
+        //         //     tokenOut: tokenOut,
+        //         //     amountIn: amountIn.toString(),
+        //         //     minAmountOut: minAmountOut.toString(),
+        //         //     orderDatas: [
+        //         //         {
+        //         //             pivAddress: pivAddress, // 使用配置文件中的PIV地址
+        //         //             orderIds: matchedOrderIds
+        //         //         }
+        //         //     ]
+        //         // };
 
-            // 初始化 IRouterContract 合约实例
-            const web3 = new Web3(web3ProviderUrl);
-            const routerContract = new web3.eth.Contract(IRouterAbi, orderBookAddress);
+        //         // // 初始化 IRouter 合约实例
+        //         // const web3 = new Web3(web3ProviderUrl);
+        //         // const routerContract = new web3.eth.Contract(IRouterAbi, orderBookAddress);
 
-            // 调用合约swap（假设routerContract已初始化）
-            swapResult = await routerContract.methods.swap(swapData).call();
+        //         // // 调用合约swap方法，返回 [netAmountOut, totalInputAmount]
+        //         // swapResult = await routerContract.methods.swap(swapData).call();
 
-            // 可选：保存swap结果到订单
-            for (const orderId of matchedOrderIds) {
-                await Order.findByIdAndUpdate(orderId, {
-                    lastSwapTokenOut: tokenOut,
-                    lastSwapMinAmountOut: minAmountOut
-                });
-            }
-        }
+        //         // // 可选：保存swap结果到订单
+        //         // for (const orderId of matchedOrderIds) {
+        //         //     await Order.findByIdAndUpdate(orderId, {
+        //         //         lastSwapResult: {
+        //         //             netAmountOut: swapResult[0],
+        //         //             totalInputAmount: swapResult[1],
+        //         //             timestamp: Date.now()
+        //         //         }
+        //         //     });
+        //         // }
+        //     } catch (contractError) {
+        //         console.error('IRouter contract call failed:', contractError);
+        //         // 合约调用失败时继续处理，但记录错误
+        //         swapResult = null;
+        //     }
+        // }
 
         if (totalOut < BigInt(minAmountOut)) {
             return res.status(400).json({ message: 'Not enough liquidity to satisfy minAmountOut', matchDetails });
@@ -151,6 +160,35 @@ exports.listOrder = async (req, res) => {
     try {
         const orders = await Order.find().sort({ createdAt: -1 });
         res.json(orders);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/**
+ * 手动触发订单同步
+ */
+exports.syncOrders = async (req, res) => {
+    try {
+        const orderSyncService = require('../services/orderSyncService');
+        await orderSyncService.syncOrders();
+        res.json({ message: 'Order sync completed successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Order sync failed', error: error.message });
+    }
+};
+
+/**
+ * 获取同步状态
+ */
+exports.getSyncStatus = async (req, res) => {
+    try {
+        const orderSyncService = require('../services/orderSyncService');
+        res.json({
+            isRunning: orderSyncService.isRunning,
+            pivAddress: orderSyncService.pivAddress,
+            contractInitialized: !!orderSyncService.pivContract
+        });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

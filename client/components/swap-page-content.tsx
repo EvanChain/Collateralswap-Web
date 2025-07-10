@@ -9,11 +9,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowUpDown } from "lucide-react"
 import OrderBook, { generateInitialMockData, updateMockData } from "./order-book"
 import Image from "next/image"
+import { useIRouter } from "../hooks/useIRouter"
 
-const tokens = [
-  { value: "usdc", label: "USDC", icon: "/icons/usdc.png" },
-  { value: "weth", label: "WETH", icon: "/icons/weth.png" },
-]
+
+import {
+  API_CONFIG,
+  CONTRACT_CONFIG,
+  TOKEN_CONFIG,
+  APP_CONFIG,
+  formatApiUrl,
+  getTokenBySymbol
+} from "../config/appConfig"
+import { orderApi } from "../lib/api"
+
+// Use tokens from config
+const tokens = TOKEN_CONFIG.SUPPORTED_TOKENS.map(token => ({
+  value: token.symbol.toLowerCase(),
+  label: token.symbol,
+  icon: token.icon,
+  address: token.address
+}))
 
 interface Order {
   price: number
@@ -26,9 +41,10 @@ export default function SwapPageContent() {
   const [payAmount, setPayAmount] = useState("") // Initialize to empty string
   const [receiveAmount, setReceiveAmount] = useState("0.00")
   const [mockBalance, setMockBalance] = useState(10000.0) // Mock user balance
-
   const [bids, setBids] = useState<Order[]>([])
   const [asks, setAsks] = useState<Order[]>([])
+  const [isSwapping, setIsSwapping] = useState(false)
+  const { swapWithRouter } = useIRouter()
 
   useEffect(() => {
     const initialData = generateInitialMockData()
@@ -92,6 +108,79 @@ export default function SwapPageContent() {
 
   const handleMaxClick = () => {
     setPayAmount(mockBalance.toFixed(2)) // Set payAmount to mock balance
+  }
+
+  const handleConfirmSwap = async () => {
+    if (!payAmount || Number.parseFloat(payAmount) <= 0) {
+      alert("Please enter a valid pay amount")
+      return
+    }
+
+    if (!fromToken || !toToken) {
+      alert("Please select both tokens")
+      return
+    }
+
+    setIsSwapping(true)
+
+    try {
+      // Get token configurations
+      const fromTokenConfig = getTokenBySymbol(fromToken.label)
+      const toTokenConfig = getTokenBySymbol(toToken.label)
+
+      if (!fromTokenConfig || !toTokenConfig) {
+        throw new Error('Token configuration not found')
+      }
+
+      // Convert amounts to Wei (using proper decimals)
+      const amountIn = (Number.parseFloat(payAmount) * Math.pow(10, fromTokenConfig.decimals)).toString()
+      const minAmountOut = (Number.parseFloat(receiveAmount) * APP_CONFIG.DEFAULT_SLIPPAGE * Math.pow(10, toTokenConfig.decimals)).toString()
+
+      // Call backend to find matching orders
+      const fillResult = await orderApi.fillOrder({
+        tokenIn: fromTokenConfig.address,
+        tokenOut: toTokenConfig.address,
+        amountIn: amountIn,
+        minAmountOut: minAmountOut
+      })
+
+      if (!fillResult.matchDetails || fillResult.matchDetails.length === 0) {
+        throw new Error('No matching orders found')
+      }
+
+      // Extract matched order IDs
+      const matchedOrderIds = fillResult.matchDetails.map((detail: any) => detail.orderId)
+
+      // Prepare swap data for IRouter contract
+      const swapData = {
+        tokenIn: fromTokenConfig.address,
+        tokenOut: toTokenConfig.address,
+        amountIn: amountIn,
+        minAmountOut: minAmountOut,
+        orderDatas: [
+          {
+            pivAddress: CONTRACT_CONFIG.PIV_ADDRESS,
+            orderIds: matchedOrderIds
+          }
+        ]
+      }
+
+      // Call IRouter contract swap method
+      const swapResult = await swapWithRouter(swapData)
+
+      // Update UI with successful swap
+      alert(`Swap successful! Received: ${swapResult.netAmountOut} ${toToken.label}`)
+
+      // Reset form
+      setPayAmount("")
+      setReceiveAmount("0.00")
+
+    } catch (error) {
+      console.error('Swap failed:', error)
+      alert(`Swap failed: ${(error as Error).message}`)
+    } finally {
+      setIsSwapping(false)
+    }
   }
 
   return (
@@ -213,7 +302,7 @@ export default function SwapPageContent() {
               <div className="bg-gray-100 p-4 rounded-lg">
                 <div className="flex justify-between items-center mb-2">
                   <Label htmlFor="swap-input-2" className="text-gray-600">
-                    You receive
+                    You will receive
                   </Label>
                   {/* Balance for receive token (optional, can be added if needed) */}
                 </div>
@@ -264,8 +353,11 @@ export default function SwapPageContent() {
                 </div>
               </div>
 
-              <Button className="w-full bg-gradient-to-r from-accent-purple to-accent-pink hover:from-accent-pink hover:to-accent-purple text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 hover:scale-105 hover:shadow-[0_0_15px_rgba(192,132,252,0.7)]">
-                Swap Now
+              <Button
+                onClick={handleConfirmSwap}
+                disabled={isSwapping}
+                className="w-full bg-gradient-to-r from-accent-purple to-accent-pink hover:from-accent-pink hover:to-accent-purple text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 hover:scale-105 hover:shadow-[0_0_15px_rgba(192,132,252,0.7)] disabled:opacity-50 disabled:cursor-not-allowed">
+                {isSwapping ? 'Swapping...' : 'Swap Now'}
               </Button>
             </CardContent>
           </Card>

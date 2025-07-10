@@ -14,7 +14,8 @@
 
 1. **MongoDB Mock** - 使用 mongodb-memory-server
 2. **Web3 Mock** - Mock 合约调用和区块链交互
-3. **ABI Mock** - Mock 智能合约 ABI
+3. **IRouter ABI Mock** - Mock IRouter智能合约 ABI
+4. **IPIV ABI Mock** - Mock IPIV智能合约 ABI (完整功能)
 
 ## 📁 文件结构
 
@@ -86,7 +87,10 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const mockContractMethods = {
   swap: jest.fn().mockReturnValue({
     call: jest.fn().mockResolvedValue(['1000000000000000000', '900000000000000000'])
-  })
+  }),
+  deployPIV: jest.fn(),
+  ADDRESSES_PROVIDER: jest.fn(),
+  POOL: jest.fn()
 };
 ```
 
