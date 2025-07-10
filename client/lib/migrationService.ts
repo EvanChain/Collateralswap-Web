@@ -9,7 +9,11 @@ export interface MigrationRequest {
     userAddress: string;
     aavePosition: AavePosition;
     migrationType: 'aaveToVault' | 'placeOrder';
-    targetToken?: string;
+    collateralToken: string;
+    collateralAmount: string;
+    debtToken: string;
+    debtAmount?: string; // For migration to vault
+    price?: string; // For order creation
     interestRateMode?: 'stable' | 'variable';
 }
 
@@ -58,7 +62,7 @@ export class MigrationService {
         try {
             if (migrationType === 'aaveToVault') {
                 // Direct migration to PIV vault
-                return await this.mockMigrateToVault(userAddress, aavePosition);
+                return await this.mockMigrateToVault(userAddress, aavePosition, request);
             } else {
                 // Create order for the position
                 return await this.mockCreateMigrationOrder(userAddress, aavePosition, request);
@@ -74,38 +78,54 @@ export class MigrationService {
     /**
      * Mock migration to PIV vault
      */
-    private async mockMigrateToVault(userAddress: string, aavePosition: AavePosition): Promise<MigrationResult> {
-        mockLog('MIGRATION', 'Mock migration to vault', { userAddress, aavePosition });
+    private async mockMigrateToVault(
+        userAddress: string,
+        aavePosition: AavePosition,
+        request: MigrationRequest
+    ): Promise<MigrationResult> {
+        mockLog('MIGRATION', 'Mock migration to vault', { userAddress, aavePosition, request });
 
-        // Simulate the migration process
-        const result = mockDataStore.simulateMigration(userAddress, aavePosition);
+        // Use the new mock migration method with enhanced structure
+        const mockRequest = {
+            userAddress: request.userAddress,
+            aavePosition: request.aavePosition,
+            migrationType: request.migrationType,
+            collateralToken: request.collateralToken,
+            collateralAmount: request.collateralAmount,
+            debtToken: request.debtToken,
+            debtAmount: request.debtAmount,
+            price: request.price,
+            interestRateMode: request.interestRateMode || 'variable'
+        };
 
-        // If it's a collateral position, also create a PIV position
-        if (aavePosition.type === 'collateral') {
-            const pivPosition: PivPosition = {
-                id: `piv-migrated-${Date.now()}`,
-                type: 'collateral',
-                token: aavePosition.token,
-                amount: aavePosition.amount,
-                formattedAmount: aavePosition.formattedAmount,
-                tokenAddress: aavePosition.tokenAddress,
-                orderId: result.order._id,
-            };
+        const result = mockDataStore.simulateNewMigration(mockRequest);
 
-            mockDataStore.addPivPosition(pivPosition);
-
+        if (result.success) {
             return {
                 success: true,
-                order: result.order,
-                pivPosition: pivPosition,
+                pivPosition: result.pivPosition,
+                order: result.order ? {
+                    _id: result.order._id,
+                    orderId: result.order.orderId,
+                    owner: userAddress,
+                    collateralToken: request.collateralToken,
+                    debtToken: request.debtToken,
+                    collateralAmount: request.collateralAmount,
+                    price: request.price || '1',
+                    status: 'OPEN' as const,
+                    filledAmount: '0',
+                    interestRateMode: request.interestRateMode,
+                    isFromBlockchain: false,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                } : undefined,
                 transactionHash: `0x${Math.random().toString(16).substr(2, 64)}` // Mock tx hash
             };
         }
 
         return {
-            success: true,
-            order: result.order,
-            transactionHash: `0x${Math.random().toString(16).substr(2, 64)}` // Mock tx hash
+            success: false,
+            error: result.error || 'Migration failed'
         };
     }
 
@@ -119,21 +139,10 @@ export class MigrationService {
     ): Promise<MigrationResult> {
         mockLog('MIGRATION', 'Mock creation of migration order', { userAddress, aavePosition, request });
 
-        // Determine order parameters based on position type
-        let collateralToken: string;
-        let debtToken: string;
-        let collateralAmount: string;
-
-        if (aavePosition.type === 'collateral') {
-            collateralToken = aavePosition.token;
-            debtToken = request.targetToken || 'USDC'; // Default debt token
-            collateralAmount = aavePosition.formattedAmount;
-        } else {
-            // For debt positions, we might want to create an order to swap for collateral
-            collateralToken = request.targetToken || 'ETH'; // Default collateral token
-            debtToken = aavePosition.token;
-            collateralAmount = '0'; // To be filled by counterparty
-        }
+        // Use the provided parameters from the request
+        const collateralToken = request.collateralToken;
+        const debtToken = request.debtToken;
+        const collateralAmount = request.collateralAmount;
 
         // Create the order through API
         try {
@@ -142,7 +151,7 @@ export class MigrationService {
                 collateralToken: collateralToken,
                 debtToken: debtToken,
                 collateralAmount: collateralAmount,
-                price: this.calculateMigrationPrice(collateralToken, debtToken),
+                price: request.price || this.calculateMigrationPrice(collateralToken, debtToken),
                 interestRateMode: request.interestRateMode || 'variable'
             };
 

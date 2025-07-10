@@ -112,8 +112,8 @@ export const createMockPivPositions = (): PivPosition[] => {
 };
 
 // Mock orders for order book
-export const createMockOrders = (): Order[] => {
-    mockLog('API', 'Creating mock orders');
+export const createMockOrders = (userAddress?: string): Order[] => {
+    mockLog('API', 'Creating mock orders', { userAddress });
 
     const baseOrders: Order[] = [
         {
@@ -178,15 +178,88 @@ export const createMockOrders = (): Order[] => {
         }
     ];
 
+    // Add user's own orders if userAddress is provided
+    if (userAddress) {
+        const userOrders: Order[] = [
+            {
+                _id: 'user-order-1',
+                orderId: 'USER_ORDER_001',
+                owner: userAddress,
+                collateralToken: 'ETH',
+                debtToken: 'USDC',
+                collateralAmount: '2.0',
+                price: '3100',
+                status: 'OPEN',
+                filledAmount: '0',
+                interestRateMode: 'variable',
+                isFromBlockchain: false,
+                createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(), // 1 hour ago
+                updatedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
+            },
+            {
+                _id: 'user-order-2',
+                orderId: 'USER_ORDER_002',
+                owner: userAddress,
+                collateralToken: 'WBTC',
+                debtToken: 'USDC',
+                collateralAmount: '0.05',
+                price: '44000',
+                status: 'OPEN',
+                filledAmount: '0',
+                interestRateMode: 'stable',
+                isFromBlockchain: false,
+                createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(), // 30 mins ago
+                updatedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+            }
+        ];
+
+        // Add user orders at the beginning
+        baseOrders.unshift(...userOrders);
+    }
+
     return baseOrders;
 };
+
+// Mock migration request interface to match the new structure
+export interface MockMigrationRequest {
+    userAddress: string;
+    aavePosition: any;
+    migrationType: "aaveToVault" | "placeOrder";
+    collateralToken: string;
+    collateralAmount: string;
+    debtToken: string;
+    debtAmount?: string; // For migration
+    price?: string; // For order creation
+    interestRateMode: "stable" | "variable";
+}
+
+// Mock migration result
+export interface MockMigrationResult {
+    success: boolean;
+    error?: string;
+    order?: {
+        orderId: string;
+        _id: string;
+    };
+    pivPosition?: PivPosition;
+}
 
 // Global mock data store for managing state across components
 class MockDataStore {
     private aavePositions: Map<string, AavePosition[]> = new Map();
     private pivPositions: PivPosition[] = createMockPivPositions();
-    private orders: Order[] = createMockOrders();
+    private orders: Order[] = [];
     private migratedPositions: Set<string> = new Set(); // Track migrated position IDs
+    private currentUserAddress: string | null = null;
+
+    // Initialize orders based on user address
+    private initializeOrders(userAddress?: string): void {
+        if (!userAddress || this.currentUserAddress === userAddress) return;
+
+        this.currentUserAddress = userAddress;
+        this.orders = createMockOrders(userAddress);
+        mockLog('STORE', `Initialized orders for user ${userAddress}`, this.orders);
+    }
 
     // Aave positions management
     getAavePositions(userAddress: string): AavePosition[] {
@@ -215,7 +288,8 @@ class MockDataStore {
     }
 
     // Orders management
-    getOrders(): Order[] {
+    getOrders(userAddress?: string): Order[] {
+        this.initializeOrders(userAddress);
         return [...this.orders];
     }
 
@@ -281,8 +355,132 @@ class MockDataStore {
         return { order: newOrder, pivPosition };
     }
 
+    // Enhanced migration simulation with new structure
+    simulateNewMigration(request: MockMigrationRequest): MockMigrationResult {
+        mockLog('STORE', 'Simulating new migration', request);
+
+        try {
+            if (request.migrationType === "aaveToVault") {
+                // Migration to vault - create PIV position
+                const pivPosition: PivPosition = {
+                    id: `piv-migrated-${Date.now()}`,
+                    type: 'collateral',
+                    token: request.collateralToken,
+                    amount: this.parseAmount(request.collateralAmount, request.collateralToken),
+                    formattedAmount: request.collateralAmount,
+                    tokenAddress: this.getTokenAddress(request.collateralToken),
+                };
+
+                this.addPivPosition(pivPosition);
+
+                // Remove from Aave positions
+                this.removeAavePosition(request.userAddress, request.aavePosition.id);
+
+                return {
+                    success: true,
+                    pivPosition
+                };
+
+            } else if (request.migrationType === "placeOrder") {
+                // Create order
+                const newOrder: Order = {
+                    _id: `order-${Date.now()}`,
+                    orderId: `ORDER_${Date.now()}`,
+                    owner: request.userAddress,
+                    collateralToken: request.collateralToken,
+                    debtToken: request.debtToken,
+                    collateralAmount: request.collateralAmount,
+                    price: request.price || this.calculateMockPrice(request.collateralToken),
+                    status: 'OPEN',
+                    filledAmount: '0',
+                    interestRateMode: request.interestRateMode,
+                    isFromBlockchain: false,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                };
+
+                this.addOrder(newOrder);
+
+                return {
+                    success: true,
+                    order: {
+                        orderId: newOrder.orderId!,
+                        _id: newOrder._id
+                    }
+                };
+            }
+
+            return {
+                success: false,
+                error: 'Invalid migration type'
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error'
+            };
+        }
+    }
+
+    // Helper method to parse amount based on token decimals
+    private parseAmount(formattedAmount: string, token: string): string {
+        const decimals = this.getTokenDecimals(token);
+        const amount = parseFloat(formattedAmount);
+        return (amount * Math.pow(10, decimals)).toString();
+    }
+
+    // Helper method to get token decimals
+    private getTokenDecimals(token: string): number {
+        const decimalsMap: Record<string, number> = {
+            'ETH': 18,
+            'WBTC': 8,
+            'USDC': 6,
+            'USDT': 6,
+            'DAI': 18,
+            'LINK': 18,
+            'AAVE': 18,
+        };
+        return decimalsMap[token] || 18;
+    }
+
+    // Helper method to get token address
+    private getTokenAddress(token: string): string {
+        const addressMap: Record<string, string> = {
+            'ETH': '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+            'WBTC': '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599',
+            'USDC': '0xA0b86a33E6441A3063BdFb663c6C8FAc6C8A4Ec2',
+            'USDT': '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+            'DAI': '0x6B175474E89094C44Da98b954EedeAC495271d0F',
+            'LINK': '0x514910771AF9Ca656af840dff83E8264EcF986CA',
+            'AAVE': '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9',
+        };
+        return addressMap[token] || '0x0000000000000000000000000000000000000000';
+    }
+
+    // Order management methods
+    updateOrderPrice(orderId: string, newPrice: string): boolean {
+        const order = this.orders.find(o => o._id === orderId);
+        if (order) {
+            order.price = newPrice;
+            order.updatedAt = new Date().toISOString();
+            mockLog('STORE', `Updated order ${orderId} price to ${newPrice}`);
+            return true;
+        }
+        return false;
+    }
+
+    cancelOrder(orderId: string): boolean {
+        const orderIndex = this.orders.findIndex(o => o._id === orderId);
+        if (orderIndex !== -1) {
+            this.orders.splice(orderIndex, 1);
+            mockLog('STORE', `Cancelled order ${orderId}`);
+            return true;
+        }
+        return false;
+    }
+
+    // Helper method for mock price calculation
     private calculateMockPrice(token: string): string {
-        // Mock price calculation for different tokens
         const mockPrices: Record<string, string> = {
             'ETH': '3000',
             'WBTC': '45000',
@@ -299,8 +497,9 @@ class MockDataStore {
     reset(): void {
         this.aavePositions.clear();
         this.pivPositions = createMockPivPositions();
-        this.orders = createMockOrders();
+        this.orders = [];
         this.migratedPositions.clear();
+        this.currentUserAddress = null;
         mockLog('STORE', 'Reset all mock data');
     }
 }

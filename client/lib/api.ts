@@ -190,7 +190,11 @@ function handleMockApiRequest<T>(endpoint: string, options: RequestInit): T {
 // Order API functions
 export const orderApi = {
     // Get all orders
-    async getOrders(): Promise<Order[]> {
+    async getOrders(userAddress?: string): Promise<Order[]> {
+        if (MOCK_CONFIG.GLOBAL_MOCK_MODE || MOCK_CONFIG.USE_MOCK_API) {
+            await mockDelay();
+            return mockDataStore.getOrders(userAddress);
+        }
         return apiRequest<Order[]>(API_CONFIG.ENDPOINTS.ORDER_LIST)
     },
 
@@ -220,6 +224,45 @@ export const orderApi = {
     // Get sync status
     async getSyncStatus(): Promise<SyncStatusResponse> {
         return apiRequest<SyncStatusResponse>(API_CONFIG.ENDPOINTS.ORDER_SYNC_STATUS)
+    },
+
+    // Update order price (Mock implementation for now)
+    async updateOrder(orderId: string, updateData: { price: string }): Promise<Order> {
+        if (MOCK_CONFIG.GLOBAL_MOCK_MODE || MOCK_CONFIG.USE_MOCK_API) {
+            await mockDelay();
+            const success = mockDataStore.updateOrderPrice(orderId, updateData.price);
+            if (success) {
+                const orders = mockDataStore.getOrders();
+                const updatedOrder = orders.find(o => o._id === orderId);
+                if (updatedOrder) {
+                    return updatedOrder;
+                }
+            }
+            throw new Error('Order not found or update failed');
+        }
+
+        // Real API call would go here
+        return apiRequest<Order>(`/orders/${orderId}`, {
+            method: 'PUT',
+            body: JSON.stringify(updateData),
+        });
+    },
+
+    // Cancel order (Mock implementation for now)
+    async cancelOrder(orderId: string): Promise<{ message: string }> {
+        if (MOCK_CONFIG.GLOBAL_MOCK_MODE || MOCK_CONFIG.USE_MOCK_API) {
+            await mockDelay();
+            const success = mockDataStore.cancelOrder(orderId);
+            if (success) {
+                return { message: 'Order cancelled successfully' };
+            }
+            throw new Error('Order not found or cancellation failed');
+        }
+
+        // Real API call would go here
+        return apiRequest<{ message: string }>(`/orders/${orderId}`, {
+            method: 'DELETE',
+        });
     },
 }
 

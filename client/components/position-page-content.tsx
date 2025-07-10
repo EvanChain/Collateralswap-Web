@@ -49,11 +49,16 @@ export default function PositionPageContent() {
   const [isMigrationDialogOpen, setIsMigrationDialogOpen] = useState(false)
   const [currentMigrationPosition, setCurrentMigrationPosition] = useState<any>(null)
   const [migrationType, setMigrationType] = useState<"aaveToVault" | "placeOrder" | null>(null)
-  const [selectedMigrateToken, setSelectedMigrateToken] = useState<string>("")
-  const [migrateAmountInput, setMigrateAmountInput] = useState<string>("")
+  const [selectedCollateralToken, setSelectedCollateralToken] = useState<string>("")
+  const [collateralAmountInput, setCollateralAmountInput] = useState<string>("")
+  const [selectedDebtToken, setSelectedDebtToken] = useState<string>("")
+  const [debtAmountInput, setDebtAmountInput] = useState<string>("")
+  const [priceInput, setPriceInput] = useState<string>("")
   const [selectedInterestRateType, setSelectedInterestRateType] = useState<string>("")
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoadingOrders, setIsLoadingOrders] = useState(false)
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
+  const [newPriceInput, setNewPriceInput] = useState<string>("")
   const [aavePositions, setAavePositions] = useState<AavePosition[]>([])
   const [isLoadingAave, setIsLoadingAave] = useState(false)
   const [aaveError, setAaveError] = useState<string | null>(null)
@@ -76,27 +81,110 @@ export default function PositionPageContent() {
     swap
   } = usePivOrderBook()
 
+  const handleDialogClose = (open: boolean) => {
+    setIsMigrationDialogOpen(open)
+
+    // Clear form fields when dialog is closed
+    if (!open) {
+      setCurrentMigrationPosition(null)
+      setMigrationType(null)
+      setSelectedCollateralToken("")
+      setCollateralAmountInput("")
+      setSelectedDebtToken("")
+      setDebtAmountInput("")
+      setPriceInput("")
+      setSelectedInterestRateType("")
+    }
+  }
+
   const openMigrationDialog = (position: any, type: "aaveToVault" | "placeOrder") => {
     setCurrentMigrationPosition(position)
     setMigrationType(type)
-    if (position.type === 'collateral') {
-      setSelectedMigrateToken(position.token)
-      setMigrateAmountInput(position.formattedAmount)
+
+    if (type === "aaveToVault" && position.type === 'collateral') {
+      // Set collateral defaults
+      setSelectedCollateralToken(position.token)
+      setCollateralAmountInput(position.formattedAmount)
+
+      // Find a debt position from the same user's AAVE positions to set defaults
+      const debtPositions = aavePositions.filter(p => p.type === 'debt')
+      if (debtPositions.length > 0) {
+        // Smart selection: prefer stablecoins (USDC, USDT, DAI) or largest debt position
+        const stablecoinDebts = debtPositions.filter(p =>
+          ['USDC', 'USDT', 'DAI'].includes(p.token)
+        )
+
+        let defaultDebtPosition
+        if (stablecoinDebts.length > 0) {
+          // Use the first stablecoin debt position
+          defaultDebtPosition = stablecoinDebts[0]
+        } else {
+          // Use the debt position with the largest amount
+          defaultDebtPosition = debtPositions.reduce((prev, current) =>
+            parseFloat(current.formattedAmount) > parseFloat(prev.formattedAmount) ? current : prev
+          )
+        }
+
+        setSelectedDebtToken(defaultDebtPosition.token)
+        setDebtAmountInput(defaultDebtPosition.formattedAmount)
+
+        console.log('Auto-selected debt position:', defaultDebtPosition)
+      } else {
+        // Fallback defaults if no debt positions found
+        setSelectedDebtToken("USDC")
+        setDebtAmountInput("1000")
+      }
+    } else if (type === "placeOrder" && position.type === 'collateral') {
+      // Set collateral defaults for order creation
+      setSelectedCollateralToken(position.token)
+      setCollateralAmountInput(position.formattedAmount)
+      // Set a default debt token for order creation
+      setSelectedDebtToken("USDC")
+      setPriceInput("") // User should set price manually
     }
+
     setSelectedInterestRateType("static")
     setIsMigrationDialogOpen(true)
   }
 
   const handleConfirmMigration = async () => {
-    if (!currentMigrationPosition || !selectedMigrateToken || !migrateAmountInput || !selectedInterestRateType || !address) {
+    if (!currentMigrationPosition || !selectedCollateralToken || !collateralAmountInput || !selectedInterestRateType || !address) {
       alert("Please fill all migration details and ensure wallet is connected.")
       return
     }
 
-    const amount = Number.parseFloat(migrateAmountInput)
-    if (isNaN(amount) || amount <= 0) {
-      alert("Please enter a valid amount.")
+    // For migration, also validate debt fields
+    if (migrationType === "aaveToVault" && (!selectedDebtToken || !debtAmountInput)) {
+      alert("Please fill all debt details for migration.")
       return
+    }
+
+    // For place order, also validate price
+    if (migrationType === "placeOrder" && (!selectedDebtToken || !priceInput)) {
+      alert("Please fill debt token and price for order creation.")
+      return
+    }
+
+    const collateralAmount = Number.parseFloat(collateralAmountInput)
+    if (isNaN(collateralAmount) || collateralAmount <= 0) {
+      alert("Please enter a valid collateral amount.")
+      return
+    }
+
+    if (migrationType === "aaveToVault") {
+      const debtAmount = Number.parseFloat(debtAmountInput)
+      if (isNaN(debtAmount) || debtAmount <= 0) {
+        alert("Please enter a valid debt amount.")
+        return
+      }
+    }
+
+    if (migrationType === "placeOrder") {
+      const price = Number.parseFloat(priceInput)
+      if (isNaN(price) || price <= 0) {
+        alert("Please enter a valid price.")
+        return
+      }
     }
 
     setIsMigrating(true)
@@ -107,7 +195,11 @@ export default function PositionPageContent() {
         userAddress: address,
         aavePosition: currentMigrationPosition,
         migrationType: migrationType!,
-        targetToken: selectedMigrateToken,
+        collateralToken: selectedCollateralToken,
+        collateralAmount: collateralAmountInput,
+        debtToken: selectedDebtToken,
+        debtAmount: migrationType === "aaveToVault" ? debtAmountInput : undefined,
+        price: migrationType === "placeOrder" ? priceInput : undefined,
         interestRateMode: selectedInterestRateType === "static" ? "stable" : "variable"
       }
 
@@ -132,8 +224,11 @@ export default function PositionPageContent() {
         setIsMigrationDialogOpen(false)
         setCurrentMigrationPosition(null)
         setMigrationType(null)
-        setSelectedMigrateToken("")
-        setMigrateAmountInput("")
+        setSelectedCollateralToken("")
+        setCollateralAmountInput("")
+        setSelectedDebtToken("")
+        setDebtAmountInput("")
+        setPriceInput("")
         setSelectedInterestRateType("")
       } else {
         console.error('Migration failed:', result.error)
@@ -144,6 +239,51 @@ export default function PositionPageContent() {
       alert(`Migration error: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsMigrating(false)
+    }
+  }
+
+  // Handle order update
+  const handleUpdateOrder = async (orderId: string, newPrice: string) => {
+    if (!newPrice || isNaN(Number.parseFloat(newPrice)) || Number.parseFloat(newPrice) <= 0) {
+      alert("Please enter a valid price.")
+      return
+    }
+
+    try {
+      // Call update order API
+      await orderApi.updateOrder(orderId, { price: newPrice })
+
+      // Refresh orders
+      await fetchOrders()
+
+      // Reset editing state
+      setEditingOrderId(null)
+      setNewPriceInput("")
+
+      alert("Order updated successfully!")
+    } catch (error) {
+      console.error('Error updating order:', error)
+      alert(`Failed to update order: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  // Handle order cancellation
+  const handleCancelOrder = async (orderId: string) => {
+    if (!confirm("Are you sure you want to cancel this order?")) {
+      return
+    }
+
+    try {
+      // Call cancel order API
+      await orderApi.cancelOrder(orderId)
+
+      // Refresh orders
+      await fetchOrders()
+
+      alert("Order cancelled successfully!")
+    } catch (error) {
+      console.error('Error cancelling order:', error)
+      alert(`Failed to cancel order: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -216,7 +356,7 @@ export default function PositionPageContent() {
   const fetchOrders = async () => {
     setIsLoadingOrders(true)
     try {
-      const ordersData = await orderApi.getOrders()
+      const ordersData = await orderApi.getOrders(address || undefined)
       setOrders(ordersData)
     } catch (error) {
       console.error('Error fetching orders:', error)
@@ -263,7 +403,7 @@ export default function PositionPageContent() {
   }, [isConnected, address, aavePositions.length, isLoadingAave])
 
   return (
-    <Dialog open={isMigrationDialogOpen} onOpenChange={setIsMigrationDialogOpen}>
+    <Dialog open={isMigrationDialogOpen} onOpenChange={handleDialogClose}>
       <div className="flex flex-col items-center gap-6 p-4 min-h-[calc(100vh-120px)]">
         {/* Debug info - remove in production
         {process.env.NODE_ENV === 'development' && (
@@ -361,7 +501,7 @@ export default function PositionPageContent() {
                           onClick={() => openMigrationDialog(position, "aaveToVault")}
                           className="bg-gradient-to-r from-accent-blue to-accent-purple hover:from-accent-purple hover:to-accent-blue text-white font-semibold py-2 px-6 rounded-lg transition-all duration-300 hover:scale-105 hover:shadow-[0_0_15px_rgba(99,102,241,0.7)] w-full md:w-auto"
                         >
-                          Migrate to Vault
+                          Migrate
                         </Button>
                       </DialogTrigger>
                     </div>
@@ -500,16 +640,17 @@ export default function PositionPageContent() {
                       <th className="text-left py-2 px-4 text-sm font-semibold text-gray-600">Debt Token</th>
                       <th className="text-left py-2 px-4 text-sm font-semibold text-gray-600">Price</th>
                       <th className="text-left py-2 px-4 text-sm font-semibold text-gray-600">Status</th>
+                      <th className="text-left py-2 px-4 text-sm font-semibold text-gray-600">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {isLoadingOrders ? (
                       <tr>
-                        <td colSpan={6} className="text-center py-4">Loading orders...</td>
+                        <td colSpan={7} className="text-center py-4">Loading orders...</td>
                       </tr>
                     ) : orders.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="text-center py-4 text-gray-500">No orders found</td>
+                        <td colSpan={7} className="text-center py-4 text-gray-500">No orders found</td>
                       </tr>
                     ) : (
                       orders.map((order) => (
@@ -518,9 +659,71 @@ export default function PositionPageContent() {
                           <td className="py-2 px-4 text-sm font-medium">{order.collateralToken}</td>
                           <td className="py-2 px-4 text-sm font-medium">{order.collateralAmount}</td>
                           <td className="py-2 px-4 text-sm font-medium">{order.debtToken}</td>
-                          <td className="py-2 px-4 text-sm font-medium">{order.price}</td>
+                          <td className="py-2 px-4 text-sm font-medium">
+                            {editingOrderId === order._id ? (
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  value={newPriceInput}
+                                  onChange={(e) => setNewPriceInput(e.target.value)}
+                                  className="w-20 h-8 text-xs"
+                                  placeholder={order.price.toString()}
+                                />
+                                <Button
+                                  onClick={() => handleUpdateOrder(order._id, newPriceInput)}
+                                  size="sm"
+                                  className="h-6 px-2 text-xs bg-green-600 hover:bg-green-700"
+                                >
+                                  ✓
+                                </Button>
+                                <Button
+                                  onClick={() => {
+                                    setEditingOrderId(null)
+                                    setNewPriceInput("")
+                                  }}
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 px-2 text-xs"
+                                >
+                                  ✕
+                                </Button>
+                              </div>
+                            ) : (
+                              order.price
+                            )}
+                          </td>
                           <td className={`py-2 px-4 text-sm font-medium ${order.status === 'OPEN' ? 'text-green-600' : order.status === 'FILLED' ? 'text-blue-600' : 'text-gray-600'}`}>
                             {order.status}
+                          </td>
+                          <td className="py-2 px-4 text-sm">
+                            {order.status === 'OPEN' && (
+                              <div className="flex items-center gap-2">
+                                {editingOrderId !== order._id ? (
+                                  <>
+                                    <Button
+                                      onClick={() => {
+                                        setEditingOrderId(order._id)
+                                        setNewPriceInput(order.price.toString())
+                                      }}
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 px-2 text-xs"
+                                    >
+                                      更新
+                                    </Button>
+                                    <Button
+                                      onClick={() => handleCancelOrder(order._id)}
+                                      size="sm"
+                                      variant="destructive"
+                                      className="h-7 px-2 text-xs"
+                                    >
+                                      取消订单
+                                    </Button>
+                                  </>
+                                ) : null}
+
+                              </div>
+                            )}
                           </td>
                         </tr>
                       ))
@@ -539,16 +742,16 @@ export default function PositionPageContent() {
           <DialogTitle>
             {migrationType === "aaveToVault" ? "Migrate AAVE Position to Vault" : "Place Swap Order"}
           </DialogTitle>
-          <DialogDescription>Enter the details for your migration. Click confirm when you're done.</DialogDescription>
+          <DialogDescription>Enter the details for your {migrationType === "aaveToVault" ? "migration" : "order"}. Click confirm when you're done.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="token" className="text-right">
-              Token
+            <Label htmlFor="collateral-token" className="text-right">
+              Collateral Token
             </Label>
-            <Select value={selectedMigrateToken} onValueChange={setSelectedMigrateToken}>
+            <Select value={selectedCollateralToken} onValueChange={setSelectedCollateralToken}>
               <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Select token" />
+                <SelectValue placeholder="Select collateral token" />
               </SelectTrigger>
               <SelectContent>
                 {currentMigrationPosition && (
@@ -556,22 +759,73 @@ export default function PositionPageContent() {
                     {currentMigrationPosition.token}
                   </SelectItem>
                 )}
+                <SelectItem value="USDC">USDC</SelectItem>
+                <SelectItem value="WBTC">WBTC</SelectItem>
+                <SelectItem value="WETH">WETH</SelectItem>
+                <SelectItem value="LINK">LINK</SelectItem>
+                <SelectItem value="AAVE">AAVE</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="amount" className="text-right">
-              Amount
+            <Label htmlFor="collateral-amount" className="text-right">
+              Collateral Amount
             </Label>
             <Input
-              id="amount"
+              id="collateral-amount"
               type="number"
-              value={migrateAmountInput}
-              onChange={(e) => setMigrateAmountInput(e.target.value)}
+              value={collateralAmountInput}
+              onChange={(e) => setCollateralAmountInput(e.target.value)}
               className="col-span-3"
               placeholder="e.g., 1000"
             />
           </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="debt-token" className="text-right">
+              Debt Token
+            </Label>
+            <Select value={selectedDebtToken} onValueChange={setSelectedDebtToken}>
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Select debt token" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="USDC">USDC</SelectItem>
+                <SelectItem value="WBTC">WBTC</SelectItem>
+                <SelectItem value="WETH">WETH</SelectItem>
+                <SelectItem value="LINK">LINK</SelectItem>
+                <SelectItem value="AAVE">AAVE</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {migrationType === "aaveToVault" ? (
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="debt-amount" className="text-right">
+                Debt Amount
+              </Label>
+              <Input
+                id="debt-amount"
+                type="number"
+                value={debtAmountInput}
+                onChange={(e) => setDebtAmountInput(e.target.value)}
+                className="col-span-3"
+                placeholder="e.g., 500"
+              />
+            </div>
+          ) : (
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="price" className="text-right">
+                Price
+              </Label>
+              <Input
+                id="price"
+                type="number"
+                value={priceInput}
+                onChange={(e) => setPriceInput(e.target.value)}
+                className="col-span-3"
+                placeholder="e.g., 1.05"
+              />
+            </div>
+          )}
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="rate-type" className="text-right">
               Interest Rate
@@ -579,14 +833,14 @@ export default function PositionPageContent() {
             <Select value={selectedInterestRateType} onValueChange={setSelectedInterestRateType}>
               <SelectTrigger className="col-span-3">
                 <SelectValue placeholder="Select rate type" />
-              </SelectTrigger >
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="static">Static</SelectItem>
                 <SelectItem value="dynamic">Dynamic</SelectItem>
               </SelectContent>
-            </Select >
-          </div >
-        </div >
+            </Select>
+          </div>
+        </div>
         <DialogFooter>
           <Button
             type="submit"
@@ -594,7 +848,7 @@ export default function PositionPageContent() {
             disabled={isMigrating}
             className="bg-gradient-to-r from-accent-purple to-accent-pink hover:from-accent-pink hover:to-accent-purple text-white font-semibold"
           >
-            {isMigrating ? 'Migrating...' : 'Confirm Migration'}
+            {isMigrating ? 'Processing...' : (migrationType === "aaveToVault" ? 'Confirm Migration' : 'Create Order')}
           </Button>
         </DialogFooter>
       </DialogContent>

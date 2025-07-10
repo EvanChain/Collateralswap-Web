@@ -2,7 +2,7 @@
 
 export default function DeFiAnimation() {
     return (
-        <div className="w-full max-w-[600px] h-[400px] rounded-lg overflow-hidden bg-white flex items-center justify-center shadow-lg">
+        <div className="w-full max-w-[600px] h-[400px] rounded-lg overflow-hidden bg-white flex items-center justify-center">
             <CollSwapLogo />
         </div>
     )
