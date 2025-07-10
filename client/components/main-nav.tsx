@@ -15,7 +15,7 @@ export default function MainNav() {
     <header className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4 p-4 md:p-8 bg-white border-b border-gray-200">
       <div className="flex items-center gap-8">
         <h1 className="text-4xl font-extrabold bg-gradient-to-r from-accent-purple to-accent-pink text-transparent bg-clip-text">
-          CollSwap
+          UnlockX
         </h1>
         <nav className="flex gap-4">
           <Link
@@ -36,7 +36,7 @@ export default function MainNav() {
           >
             Positions
           </Link>
-          <Link
+          {/* <Link
             href="/test" // Test page for mock testing
             className={cn(
               "text-lg font-medium transition-colors hover:text-gray-900",
@@ -44,7 +44,7 @@ export default function MainNav() {
             )}
           >
             Tests
-          </Link>
+          </Link> */}
         </nav>
       </div>
       <Connector

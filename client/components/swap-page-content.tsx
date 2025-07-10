@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowUpDown } from "lucide-react"
 import OrderBook, { generateInitialMockData, updateMockData } from "./order-book"
-import Image from "next/image"
+import DeFiAnimation from "./defi-animation"
 import { useIRouter } from "../hooks/useIRouter"
 import { TokenUSDC, TokenUSDT, TokenWBTC, TokenLINK, TokenAAVE, TokenEURS } from "@web3icons/react"
 
@@ -214,21 +214,7 @@ export default function SwapPageContent() {
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
         <div className="flex flex-col items-center text-center space-y-6 w-full max-w-3xl mx-auto lg:mx-0">
-          <div className="relative rounded-lg overflow-hidden inline-block">
-            <Image
-              src="/images/hero-placeholder.png"
-              width={600}
-              height={400}
-              alt="DeFi Insurance Vault Illustration"
-              className="rounded-lg shadow-lg max-w-full h-auto"
-            />
-            <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-white to-transparent"></div>
-              <div className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-white to-transparent"></div>
-              <div className="absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-white to-transparent"></div>
-              <div className="absolute inset-y-0 right-0 w-1/4 bg-gradient-to-l from-white to-transparent"></div>
-            </div>
-          </div>
+          <DeFiAnimation />
 
           <h2 className="text-5xl md:text-6xl font-extrabold leading-tight bg-gradient-to-r from-accent-purple to-accent-pink text-transparent bg-clip-text">
             Your DeFi Assets, Secured.
