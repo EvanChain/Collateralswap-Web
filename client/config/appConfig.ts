@@ -86,42 +86,36 @@ export const TOKEN_CONFIG = {
             name: 'USD Coin',
             address: CONTRACT_CONFIG.TOKENS.USDC,
             decimals: 6,
-            icon: '/icons/usdc.png',
         },
         {
             symbol: 'USDT',
             name: 'Tether USD',
             address: CONTRACT_CONFIG.TOKENS.USDT,
             decimals: 6,
-            icon: '/icons/usdt.png',
         },
         {
             symbol: 'WBTC',
             name: 'Wrapped Bitcoin',
             address: CONTRACT_CONFIG.TOKENS.WBTC,
             decimals: 8,
-            icon: '/icons/wbtc.png',
         },
         {
             symbol: 'LINK',
             name: 'Chainlink',
             address: CONTRACT_CONFIG.TOKENS.LINK,
             decimals: 18,
-            icon: '/icons/link.png',
         },
         {
             symbol: 'AAVE',
             name: 'Aave',
             address: CONTRACT_CONFIG.TOKENS.AAVE,
             decimals: 18,
-            icon: '/icons/aave.png',
         },
         {
             symbol: 'EURS',
             name: 'STASIS EURS',
             address: CONTRACT_CONFIG.TOKENS.EURS,
             decimals: 2,
-            icon: '/icons/eurs.png',
         }
     ],
 

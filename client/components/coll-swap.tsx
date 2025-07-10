@@ -8,11 +8,36 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select" // Import Select components
 import { ArrowUpDown } from "lucide-react" // Changed ArrowDown to ArrowUpDown
 import OrderBook from "./order-book" // Import the new OrderBook component
+import { TokenUSDC, TokenWBTC } from "@web3icons/react"
+
+// Token icon mapping
+const tokenIconMap: Record<string, React.ComponentType<any>> = {
+  USDC: TokenUSDC,
+  WETH: TokenWBTC, // Using WBTC icon as placeholder for WETH
+}
+
+// TokenIcon component
+const TokenIcon = ({ symbol, size = 20 }: { symbol: string; size?: number }) => {
+  const IconComponent = tokenIconMap[symbol.toUpperCase()]
+
+  if (!IconComponent) {
+    return (
+      <div
+        className="rounded-full bg-gray-300 flex items-center justify-center text-xs font-bold text-gray-600"
+        style={{ width: size, height: size }}
+      >
+        {symbol.slice(0, 2).toUpperCase()}
+      </div>
+    )
+  }
+
+  return <IconComponent size={size} />
+}
 
 // Define token data for reusability
 const tokens = [
-  { value: "usdc", label: "USDC", icon: "/icons/usdc.png" },
-  { value: "weth", label: "WETH", icon: "/icons/weth.png" },
+  { value: "usdc", label: "USDC" },
+  { value: "weth", label: "WETH" },
   // Add more tokens as needed
 ]
 
@@ -140,12 +165,8 @@ export default function CollSwap() {
                       <SelectValue placeholder="Select token">
                         {fromToken && (
                           <div className="flex items-center">
-                            <img
-                              src={fromToken.icon || "/placeholder.svg"}
-                              alt={`${fromToken.label} icon`}
-                              className="mr-2 h-5 w-5"
-                            />
-                            {fromToken.label}
+                            <TokenIcon symbol={fromToken.label} size={20} />
+                            <span className="ml-2">{fromToken.label}</span>
                           </div>
                         )}
                       </SelectValue>
@@ -157,12 +178,10 @@ export default function CollSwap() {
                           value={token.value}
                           className="flex items-center data-[state=checked]:bg-gray-100 data-[highlighted]:bg-gray-100"
                         >
-                          <img
-                            src={token.icon || "/placeholder.svg"}
-                            alt={`${token.label} icon`}
-                            className="mr-2 h-5 w-5"
-                          />
-                          {token.label}
+                          <div className="flex items-center">
+                            <TokenIcon symbol={token.label} size={20} />
+                            <span className="ml-2">{token.label}</span>
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -205,12 +224,8 @@ export default function CollSwap() {
                       <SelectValue placeholder="Select token">
                         {toToken && (
                           <div className="flex items-center">
-                            <img
-                              src={toToken.icon || "/placeholder.svg"}
-                              alt={`${toToken.label} icon`}
-                              className="mr-2 h-5 w-5"
-                            />
-                            {toToken.label}
+                            <TokenIcon symbol={toToken.label} size={20} />
+                            <span className="ml-2">{toToken.label}</span>
                           </div>
                         )}
                       </SelectValue>
@@ -222,12 +237,10 @@ export default function CollSwap() {
                           value={token.value}
                           className="flex items-center data-[state=checked]:bg-gray-100 data-[highlighted]:bg-gray-100"
                         >
-                          <img
-                            src={token.icon || "/placeholder.svg"}
-                            alt={`${token.label} icon`}
-                            className="mr-2 h-5 w-5"
-                          />
-                          {token.label}
+                          <div className="flex items-center">
+                            <TokenIcon symbol={token.label} size={20} />
+                            <span className="ml-2">{token.label}</span>
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>

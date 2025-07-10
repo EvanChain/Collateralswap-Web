@@ -226,8 +226,12 @@ export default function PositionPageContent() {
   }
 
   useEffect(() => {
-    fetchOrders()
-  }, [])
+    if (isConnected) {
+      fetchOrders()
+    } else {
+      setOrders([])
+    }
+  }, [isConnected])
 
   // Add debug logging
   useEffect(() => {
@@ -261,7 +265,7 @@ export default function PositionPageContent() {
   return (
     <Dialog open={isMigrationDialogOpen} onOpenChange={setIsMigrationDialogOpen}>
       <div className="flex flex-col items-center gap-6 p-4 min-h-[calc(100vh-120px)]">
-        {/* Debug info - remove in production */}
+        {/* Debug info - remove in production
         {process.env.NODE_ENV === 'development' && (
           <div className="bg-yellow-100 p-2 rounded text-sm w-full max-w-6xl">
             <strong>Debug Info:</strong> Connected: {isConnected ? 'Yes' : 'No'}, Address: {address || 'None'}
@@ -281,7 +285,7 @@ export default function PositionPageContent() {
               </Button>
             )}
           </div>
-        )}
+        )} */}
 
         {/* Positions Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full max-w-6xl items-start">
@@ -369,124 +373,162 @@ export default function PositionPageContent() {
 
           {/* Vault Position Card */}
           <Card className="bg-white border-gray-200 text-gray-900 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/10 w-full">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Vault Position</CardTitle>
+              {isConnected && (
+                <Button
+                  onClick={fetchPivPositions}
+                  disabled={isLoadingPiv}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                >
+                  {isLoadingPiv ? 'Loading...' : 'Refresh'}
+                </Button>
+              )}
             </CardHeader>
             <CardContent className="grid gap-4 max-h-[300px] overflow-y-auto">
-              {/* Table Header */}
-              <div className="grid grid-cols-2 gap-4 text-sm border-b border-gray-200 pb-2 text-gray-600 font-semibold">
-                <p>Type</p>
-                <p>Position</p>
-              </div>
-              {isLoadingPiv ? (
-                <div className="text-center py-4">Loading PIV positions...</div>
-              ) : pivPositions.length > 0 ? (
-                pivPositions.map((position) => (
-                  <div
-                    key={position.id}
-                    className="flex flex-col md:flex-row items-center justify-between bg-gray-100 p-4 rounded-md gap-4"
-                  >
-                    <div className="grid grid-cols-2 gap-4 w-full md:w-auto md:flex-grow">
-                      <div className="flex flex-col">
-                        <p className="font-medium text-lg capitalize">{position.type}</p>
-                        <p className="text-sm text-gray-600">{position.orderId ? `Order: ${position.orderId}` : 'Direct'}</p>
-                      </div>
-                      <div className="flex flex-col">
-                        <p className="font-medium text-lg">{position.token}</p>
-                        <p className="font-bold text-xl">{position.formattedAmount}</p>
-                      </div>
-                    </div>
-                    <DialogTrigger asChild>
-                      <Button
-                        onClick={() => openMigrationDialog(position, "placeOrder")}
-                        className="bg-gradient-to-r from-accent-blue to-accent-purple hover:from-accent-purple hover:to-accent-blue text-white font-semibold py-2 px-6 rounded-lg transition-all duration-300 hover:scale-105 hover:shadow-[0_0_15px_rgba(99,102,241,0.7)] w-full md:w-auto"
-                        disabled={position.type === 'debt'} // Only allow orders for collateral
-                      >
-                        Create Order
-                      </Button>
-                    </DialogTrigger>
-                  </div>
-                ))
+              {!isConnected ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-600 mb-2">Please connect your wallet to view vault positions</p>
+                  <p className="text-sm text-gray-500">Use the "Connect Wallet" button in the top right corner</p>
+                </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">
-                  No PIV positions found. Migrate from Aave to create positions.
-                </div>
-              )}
-
-              {/* Fallback to old vault positions for demo if no PIV positions */}
-              {!isLoadingPiv && pivPositions.length === 0 && vaultPositions.map((position) => (
-                <div
-                  key={position.id}
-                  className="flex flex-col md:flex-row items-center justify-between bg-gray-100 p-4 rounded-md gap-4"
-                >
-                  <div className="grid grid-cols-2 gap-4 w-full md:w-auto md:flex-grow">
-                    <div className="flex flex-col">
-                      <p className="font-medium text-lg">{position.debt.token}</p>
-                      <p className="font-bold text-xl">{position.debt.amount}</p>
-                    </div>
-                    <div className="flex flex-col">
-                      <p className="font-medium text-lg">{position.collateral.token}</p>
-                      <p className="font-bold text-xl">{position.collateral.amount}</p>
-                    </div>
+                <>
+                  {/* Table Header */}
+                  <div className="grid grid-cols-2 gap-4 text-sm border-b border-gray-200 pb-2 text-gray-600 font-semibold">
+                    <p>Type</p>
+                    <p>Position</p>
                   </div>
-                  <DialogTrigger asChild>
-                    <Button
-                      onClick={() => openMigrationDialog(position, "placeOrder")}
-                      className="bg-gradient-to-r from-accent-blue to-accent-purple hover:from-accent-purple hover:to-accent-blue text-white font-semibold py-2 px-6 rounded-lg transition-all duration-300 hover:scale-105 hover:shadow-[0_0_15px_rgba(99,102,241,0.7)] w-full md:w-auto"
+                  {isLoadingPiv ? (
+                    <div className="text-center py-4">Loading PIV positions...</div>
+                  ) : pivPositions.length > 0 ? (
+                    pivPositions.map((position) => (
+                      <div
+                        key={position.id}
+                        className="flex flex-col md:flex-row items-center justify-between bg-gray-100 p-4 rounded-md gap-4"
+                      >
+                        <div className="grid grid-cols-2 gap-4 w-full md:w-auto md:flex-grow">
+                          <div className="flex flex-col">
+                            <p className="font-medium text-lg capitalize">{position.type}</p>
+                            <p className="text-sm text-gray-600">{position.orderId ? `Order: ${position.orderId}` : 'Direct'}</p>
+                          </div>
+                          <div className="flex flex-col">
+                            <p className="font-medium text-lg">{position.token}</p>
+                            <p className="font-bold text-xl">{position.formattedAmount}</p>
+                          </div>
+                        </div>
+                        <DialogTrigger asChild>
+                          <Button
+                            onClick={() => openMigrationDialog(position, "placeOrder")}
+                            className="bg-gradient-to-r from-accent-blue to-accent-purple hover:from-accent-purple hover:to-accent-blue text-white font-semibold py-2 px-6 rounded-lg transition-all duration-300 hover:scale-105 hover:shadow-[0_0_15px_rgba(99,102,241,0.7)] w-full md:w-auto"
+                            disabled={position.type === 'debt'} // Only allow orders for collateral
+                          >
+                            Create Order
+                          </Button>
+                        </DialogTrigger>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      No PIV positions found. Migrate from Aave to create positions.
+                    </div>
+                  )}
+
+                  {/* Fallback to old vault positions for demo if no PIV positions */}
+                  {!isLoadingPiv && pivPositions.length === 0 && vaultPositions.map((position) => (
+                    <div
+                      key={position.id}
+                      className="flex flex-col md:flex-row items-center justify-between bg-gray-100 p-4 rounded-md gap-4"
                     >
-                      Place Order
-                    </Button>
-                  </DialogTrigger>
-                </div>
-              ))}
+                      <div className="grid grid-cols-2 gap-4 w-full md:w-auto md:flex-grow">
+                        <div className="flex flex-col">
+                          <p className="font-medium text-lg">{position.debt.token}</p>
+                          <p className="font-bold text-xl">{position.debt.amount}</p>
+                        </div>
+                        <div className="flex flex-col">
+                          <p className="font-medium text-lg">{position.collateral.token}</p>
+                          <p className="font-bold text-xl">{position.collateral.amount}</p>
+                        </div>
+                      </div>
+                      <DialogTrigger asChild>
+                        <Button
+                          onClick={() => openMigrationDialog(position, "placeOrder")}
+                          className="bg-gradient-to-r from-accent-blue to-accent-purple hover:from-accent-purple hover:to-accent-blue text-white font-semibold py-2 px-6 rounded-lg transition-all duration-300 hover:scale-105 hover:shadow-[0_0_15px_rgba(99,102,241,0.7)] w-full md:w-auto"
+                        >
+                          Place Order
+                        </Button>
+                      </DialogTrigger>
+                    </div>
+                  ))}
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
 
         {/* Order List Card */}
         <Card className="bg-white border-gray-200 text-gray-900 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/10 w-full max-w-6xl">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Order list</CardTitle>
+            {isConnected && (
+              <Button
+                onClick={fetchOrders}
+                disabled={isLoadingOrders}
+                variant="outline"
+                size="sm"
+                className="text-xs"
+              >
+                {isLoadingOrders ? 'Loading...' : 'Refresh'}
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-2 px-4 text-sm font-semibold text-gray-600">Owner</th>
-                    <th className="text-left py-2 px-4 text-sm font-semibold text-gray-600">Collateral Token</th>
-                    <th className="text-left py-2 px-4 text-sm font-semibold text-gray-600">Collateral Amount</th>
-                    <th className="text-left py-2 px-4 text-sm font-semibold text-gray-600">Debt Token</th>
-                    <th className="text-left py-2 px-4 text-sm font-semibold text-gray-600">Price</th>
-                    <th className="text-left py-2 px-4 text-sm font-semibold text-gray-600">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {isLoadingOrders ? (
-                    <tr>
-                      <td colSpan={6} className="text-center py-4">Loading orders...</td>
+            {!isConnected ? (
+              <div className="text-center py-8">
+                <p className="text-gray-600 mb-2">Please connect your wallet to view order list</p>
+                <p className="text-sm text-gray-500">Use the "Connect Wallet" button in the top right corner</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-2 px-4 text-sm font-semibold text-gray-600">Owner</th>
+                      <th className="text-left py-2 px-4 text-sm font-semibold text-gray-600">Collateral Token</th>
+                      <th className="text-left py-2 px-4 text-sm font-semibold text-gray-600">Collateral Amount</th>
+                      <th className="text-left py-2 px-4 text-sm font-semibold text-gray-600">Debt Token</th>
+                      <th className="text-left py-2 px-4 text-sm font-semibold text-gray-600">Price</th>
+                      <th className="text-left py-2 px-4 text-sm font-semibold text-gray-600">Status</th>
                     </tr>
-                  ) : orders.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="text-center py-4 text-gray-500">No orders found</td>
-                    </tr>
-                  ) : (
-                    orders.map((order) => (
-                      <tr key={order._id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-2 px-4 text-sm font-medium truncate max-w-32">{order.owner}</td>
-                        <td className="py-2 px-4 text-sm font-medium">{order.collateralToken}</td>
-                        <td className="py-2 px-4 text-sm font-medium">{order.collateralAmount}</td>
-                        <td className="py-2 px-4 text-sm font-medium">{order.debtToken}</td>
-                        <td className="py-2 px-4 text-sm font-medium">{order.price}</td>
-                        <td className={`py-2 px-4 text-sm font-medium ${order.status === 'OPEN' ? 'text-green-600' : order.status === 'FILLED' ? 'text-blue-600' : 'text-gray-600'}`}>
-                          {order.status}
-                        </td>
+                  </thead>
+                  <tbody>
+                    {isLoadingOrders ? (
+                      <tr>
+                        <td colSpan={6} className="text-center py-4">Loading orders...</td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    ) : orders.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="text-center py-4 text-gray-500">No orders found</td>
+                      </tr>
+                    ) : (
+                      orders.map((order) => (
+                        <tr key={order._id} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="py-2 px-4 text-sm font-medium truncate max-w-32">{order.owner}</td>
+                          <td className="py-2 px-4 text-sm font-medium">{order.collateralToken}</td>
+                          <td className="py-2 px-4 text-sm font-medium">{order.collateralAmount}</td>
+                          <td className="py-2 px-4 text-sm font-medium">{order.debtToken}</td>
+                          <td className="py-2 px-4 text-sm font-medium">{order.price}</td>
+                          <td className={`py-2 px-4 text-sm font-medium ${order.status === 'OPEN' ? 'text-green-600' : order.status === 'FILLED' ? 'text-blue-600' : 'text-gray-600'}`}>
+                            {order.status}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

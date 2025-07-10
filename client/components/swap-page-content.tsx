@@ -10,7 +10,7 @@ import { ArrowUpDown } from "lucide-react"
 import OrderBook, { generateInitialMockData, updateMockData } from "./order-book"
 import Image from "next/image"
 import { useIRouter } from "../hooks/useIRouter"
-
+import { TokenUSDC, TokenUSDT, TokenWBTC, TokenLINK, TokenAAVE, TokenEURS } from "@web3icons/react"
 
 import {
   API_CONFIG,
@@ -22,11 +22,38 @@ import {
 } from "../config/appConfig"
 import { orderApi } from "../lib/api"
 
+// Token icon mapping
+const tokenIconMap: Record<string, React.ComponentType<any>> = {
+  USDC: TokenUSDC,
+  USDT: TokenUSDT,
+  WBTC: TokenWBTC,
+  LINK: TokenLINK,
+  AAVE: TokenAAVE,
+  EURS: TokenEURS,
+}
+
+// TokenIcon component
+const TokenIcon = ({ symbol, size = 20 }: { symbol: string; size?: number }) => {
+  const IconComponent = tokenIconMap[symbol.toUpperCase()]
+
+  if (!IconComponent) {
+    return (
+      <div
+        className="rounded-full bg-gray-300 flex items-center justify-center text-xs font-bold text-gray-600"
+        style={{ width: size, height: size }}
+      >
+        {symbol.slice(0, 2).toUpperCase()}
+      </div>
+    )
+  }
+
+  return <IconComponent size={size} />
+}
+
 // Use tokens from config
 const tokens = TOKEN_CONFIG.SUPPORTED_TOKENS.map(token => ({
   value: token.symbol.toLowerCase(),
   label: token.symbol,
-  icon: token.icon,
   address: token.address
 }))
 
@@ -249,12 +276,8 @@ export default function SwapPageContent() {
                       <SelectValue placeholder="Select token">
                         {fromToken && (
                           <div className="flex items-center">
-                            <img
-                              src={fromToken.icon || "/placeholder.svg"}
-                              alt={`${fromToken.label} icon`}
-                              className="mr-2 h-5 w-5"
-                            />
-                            {fromToken.label}
+                            <TokenIcon symbol={fromToken.label} size={20} />
+                            <span className="ml-2">{fromToken.label}</span>
                           </div>
                         )}
                       </SelectValue>
@@ -266,12 +289,10 @@ export default function SwapPageContent() {
                           value={token.value}
                           className="flex items-center data-[state=checked]:bg-gray-100 data-[highlighted]:bg-gray-100"
                         >
-                          <img
-                            src={token.icon || "/placeholder.svg"}
-                            alt={`${token.label} icon`}
-                            className="mr-2 h-5 w-5"
-                          />
-                          {token.label}
+                          <div className="flex items-center">
+                            <TokenIcon symbol={token.label} size={20} />
+                            <span className="ml-2">{token.label}</span>
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -315,12 +336,8 @@ export default function SwapPageContent() {
                       <SelectValue placeholder="Select token">
                         {toToken && (
                           <div className="flex items-center">
-                            <img
-                              src={toToken.icon || "/placeholder.svg"}
-                              alt={`${toToken.label} icon`}
-                              className="mr-2 h-5 w-5"
-                            />
-                            {toToken.label}
+                            <TokenIcon symbol={toToken.label} size={20} />
+                            <span className="ml-2">{toToken.label}</span>
                           </div>
                         )}
                       </SelectValue>
@@ -332,12 +349,10 @@ export default function SwapPageContent() {
                           value={token.value}
                           className="flex items-center data-[state=checked]:bg-gray-100 data-[highlighted]:bg-gray-100"
                         >
-                          <img
-                            src={token.icon || "/placeholder.svg"}
-                            alt={`${token.label} icon`}
-                            className="mr-2 h-5 w-5"
-                          />
-                          {token.label}
+                          <div className="flex items-center">
+                            <TokenIcon symbol={token.label} size={20} />
+                            <span className="ml-2">{token.label}</span>
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
